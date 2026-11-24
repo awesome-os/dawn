@@ -14,14 +14,37 @@ permissions:
   contents: write
 
 jobs:
-  build-linux-x64:
-    runs-on: ubuntu-latest
+  build:
+    name: Build Dawn (${{ matrix.target }})
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runs_on: ubuntu-latest
+            os: linux
+            artifact: libwebgpu_dawn-linux-x64.so
+          - target: linux-arm64
+            runs_on: ubuntu-24.04-arm
+            os: linux
+            artifact: libwebgpu_dawn-linux-arm64.so
+          - target: windows-x64
+            runs_on: windows-latest
+            os: windows
+            artifact: webgpu_dawn-windows-x64.dll
+          - target: macos-arm64
+            runs_on: macos-latest
+            os: macos
+            artifact: libwebgpu_dawn-macos-arm64.dylib
+
     steps:
       - name: Checkout @awesome-os/dawn
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install build dependencies (Linux)
+        if: matrix.os == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -37,42 +60,140 @@ jobs:
             mesa-common-dev \
             zstd
 
+      - name: Setup MSVC environment (Windows)
+        if: matrix.os == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install build dependencies (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install -y ninja
+          }
+
+      - name: Install build dependencies (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          brew install cmake ninja
+
       - name: Clone Google Dawn (shallow)
+        shell: bash
         run: |
           git clone --depth 1 --branch "${{ inputs.dawn_ref || 'main' }}" \
             https://dawn.googlesource.com/dawn upstream-dawn
 
-      - name: Configure Dawn standalone shared library
+      - name: Configure Dawn standalone shared library (Linux/macOS)
+        if: matrix.os != 'windows'
         run: |
           cmake -S upstream-dawn -B build/dawn-cas -G Ninja \
             -C config/dawn-cas.cmake
 
-      - name: Build libwebgpu_dawn.so
+      - name: Configure Dawn standalone shared library (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          cmake -S upstream-dawn -B build/dawn-cas -G Ninja `
+            -C config/dawn-cas.cmake
+
+      - name: Build webgpu_dawn (Linux)
+        if: matrix.os == 'linux'
         run: |
           cmake --build build/dawn-cas --target webgpu_dawn -j "$(nproc)"
 
-      - name: Package libwebgpu_dawn-linux-x64.so
+      - name: Build webgpu_dawn (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          cmake --build build/dawn-cas --target webgpu_dawn -j "$(sysctl -n hw.ncpu)"
+
+      - name: Build webgpu_dawn (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          cmake --build build/dawn-cas --target webgpu_dawn --parallel
+
+      - name: Package ${{ matrix.artifact }} (Linux)
+        if: matrix.os == 'linux'
         run: |
           mkdir -p dist
           SO_PATH="$(find build/dawn-cas -name 'libwebgpu_dawn.so*' -type f | head -n 1)"
           test -n "$SO_PATH"
-          cp -L "$SO_PATH" dist/libwebgpu_dawn-linux-x64.so
-          sha256sum dist/libwebgpu_dawn-linux-x64.so > dist/libwebgpu_dawn-linux-x64.so.sha256
+          cp -L "$SO_PATH" "dist/${{ matrix.artifact }}"
+          sha256sum "dist/${{ matrix.artifact }}" > "dist/${{ matrix.artifact }}.sha256"
+          sha512sum "dist/${{ matrix.artifact }}" > "dist/${{ matrix.artifact }}.sha512"
           ls -lh dist/
+
+      - name: Package ${{ matrix.artifact }} (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          mkdir -p dist
+          DYLIB_PATH="$(find build/dawn-cas -name 'libwebgpu_dawn*.dylib' -type f | head -n 1)"
+          test -n "$DYLIB_PATH"
+          cp -L "$DYLIB_PATH" "dist/${{ matrix.artifact }}"
+          shasum -a 256 "dist/${{ matrix.artifact }}" > "dist/${{ matrix.artifact }}.sha256"
+          shasum -a 512 "dist/${{ matrix.artifact }}" > "dist/${{ matrix.artifact }}.sha512"
+          ls -lh dist/
+
+      - name: Package ${{ matrix.artifact }} (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $dll = Get-ChildItem -Path build/dawn-cas -Recurse -Filter "webgpu_dawn.dll" -File | Select-Object -First 1
+          if (-not $dll) { throw "webgpu_dawn.dll not found in build/dawn-cas" }
+          $outPath = "dist/${{ matrix.artifact }}"
+          Copy-Item -Path $dll.FullName -Destination $outPath -Force
+          $sha256 = (Get-FileHash -Algorithm SHA256 -Path $outPath).Hash.ToLowerInvariant()
+          $sha512 = (Get-FileHash -Algorithm SHA512 -Path $outPath).Hash.ToLowerInvariant()
+          "$sha256  ${{ matrix.artifact }}" | Out-File -Encoding ascii -NoNewline "$outPath.sha256"
+          "$sha512  ${{ matrix.artifact }}" | Out-File -Encoding ascii -NoNewline "$outPath.sha512"
+          Get-ChildItem dist/
 
       - name: Upload Dawn shared library artifact
         uses: actions/upload-artifact@v4
         with:
-          name: libwebgpu_dawn-linux-x64
-          path: |
-            dist/libwebgpu_dawn-linux-x64.so
-            dist/libwebgpu_dawn-linux-x64.so.sha256
+          name: dawn-cas-${{ matrix.target }}
+          path: dist/*
           retention-days: 14
 
-      - name: Publish libwebgpu_dawn-linux-x64.so release asset
+  publish:
+    name: Publish Dawn CAS Release
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all Dawn CAS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dawn-cas-*
+          merge-multiple: true
+          path: dist
+
+      - name: Generate SHA256SUMS.txt and SHA512SUMS.txt
+        run: |
+          cd dist
+          shopt -s nullglob
+          FILES=(*.so *.dll *.dylib)
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "No Dawn CAS binaries found to publish."
+            exit 1
+          fi
+          IFS=$'\n' SORTED=($(printf '%s\n' "${FILES[@]}" | LC_ALL=C sort))
+          unset IFS
+          sha256sum "${SORTED[@]}" > SHA256SUMS.txt
+          sha512sum "${SORTED[@]}" > SHA512SUMS.txt
+          cat SHA256SUMS.txt
+          ls -lh
+
+      - name: Publish Dawn CAS release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="dawn-cas-$(date -u +%Y%m%d)"
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Dawn CAS $TAG" --notes "Standalone libwebgpu_dawn-linux-x64.so built with config/dawn-cas.cmake"
-          gh release upload "$TAG" dist/libwebgpu_dawn-linux-x64.so dist/libwebgpu_dawn-linux-x64.so.sha256 --clobber
+          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 || gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Dawn CAS $TAG" \
+            --notes "Standalone Dawn WebGPU CAS shards (linux-x64, linux-arm64, windows-x64, macos-arm64) built with config/dawn-cas.cmake"
+          gh release upload "$TAG" dist/* --repo "${{ github.repository }}" --clobber
