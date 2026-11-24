@@ -6,6 +6,30 @@ Standalone **Google Dawn WebGPU** shared library shard (`libwebgpu_dawn`, BSD-3-
 - **Sectium Browser** hardware-accelerated WebGPU & compositor surfaces (`libsectium_display`)
 - **`B8G_ARENA_V1` 3D** zero-copy compute and rendering pipelines
 
+## Quick Install & Usage
+
+### Install via `pnpm` (or release tarball)
+
+```powershell
+pnpm add github:awesome-os/dawn
+```
+
+Or download the latest SHA-256 verified archive from [`Releases`](https://github.com/awesome-os/dawn/releases/latest).
+
+### Usage & Verification
+
+```ts
+import { resolveDawnPlan } from '@awesome-os/dawn';
+
+const plan = await resolveDawnPlan();
+console.log(plan.status, plan.ghostAbi.entry?.sha256);
+```
+
+```powershell
+# Verify locally (Node.js 22+)
+node --test
+```
+
 ## Why Standalone Dawn Sharding over `cas-v1`?
 
 Instead of bundling or recompiling Chromium's `third_party/dawn` inside every downstream repository, `@awesome-os/dawn` isolates `libwebgpu_dawn` as a single content-addressed shared library shard in `awesome-os/b8g-ghost @ cas-v1`:
