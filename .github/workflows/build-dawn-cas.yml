@@ -11,7 +11,7 @@ on:
     - cron: '0 4 * * 1'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-linux-x64:
@@ -68,3 +68,11 @@ jobs:
             dist/libwebgpu_dawn-linux-x64.so
             dist/libwebgpu_dawn-linux-x64.so.sha256
           retention-days: 14
+
+      - name: Publish libwebgpu_dawn-linux-x64.so release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="dawn-cas-$(date -u +%Y%m%d)"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Dawn CAS $TAG" --notes "Standalone libwebgpu_dawn-linux-x64.so built with config/dawn-cas.cmake"
+          gh release upload "$TAG" dist/libwebgpu_dawn-linux-x64.so dist/libwebgpu_dawn-linux-x64.so.sha256 --clobber
