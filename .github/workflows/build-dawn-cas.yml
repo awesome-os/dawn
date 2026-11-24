@@ -1,0 +1,70 @@
+name: Build Dawn CAS Shard
+
+on:
+  workflow_dispatch:
+    inputs:
+      dawn_ref:
+        description: 'Upstream Dawn git ref or branch'
+        required: false
+        default: 'main'
+  schedule:
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout @awesome-os/dawn
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            python3 \
+            pkg-config \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb1-dev \
+            libwayland-dev \
+            libvulkan-dev \
+            mesa-common-dev \
+            zstd
+
+      - name: Clone Google Dawn (shallow)
+        run: |
+          git clone --depth 1 --branch "${{ inputs.dawn_ref || 'main' }}" \
+            https://dawn.googlesource.com/dawn upstream-dawn
+
+      - name: Configure Dawn standalone shared library
+        run: |
+          cmake -S upstream-dawn -B build/dawn-cas -G Ninja \
+            -C config/dawn-cas.cmake
+
+      - name: Build libwebgpu_dawn.so
+        run: |
+          cmake --build build/dawn-cas --target webgpu_dawn -j "$(nproc)"
+
+      - name: Package libwebgpu_dawn-linux-x64.so
+        run: |
+          mkdir -p dist
+          SO_PATH="$(find build/dawn-cas -name 'libwebgpu_dawn.so*' -type f | head -n 1)"
+          test -n "$SO_PATH"
+          cp -L "$SO_PATH" dist/libwebgpu_dawn-linux-x64.so
+          sha256sum dist/libwebgpu_dawn-linux-x64.so > dist/libwebgpu_dawn-linux-x64.so.sha256
+          ls -lh dist/
+
+      - name: Upload Dawn shared library artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libwebgpu_dawn-linux-x64
+          path: |
+            dist/libwebgpu_dawn-linux-x64.so
+            dist/libwebgpu_dawn-linux-x64.so.sha256
+          retention-days: 14
