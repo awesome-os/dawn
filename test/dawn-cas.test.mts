@@ -15,7 +15,8 @@ import {
 describe('@awesome-os/dawn cas-v1 shard integration', () => {
   it('validates config/dawn-cas.cmake standalone shared-library preset flags', () => {
     const cmake = readFileSync(DAWN_CMAKE_PRESET_PATH, 'utf8');
-    assert.match(cmake, /set\(BUILD_SHARED_LIBS\s+ON\b/);
+    assert.match(cmake, /set\(BUILD_SHARED_LIBS\s+OFF\b/);
+    assert.match(cmake, /set\(DAWN_BUILD_MONOLITHIC_LIBRARY\s+"SHARED"/);
     assert.match(cmake, /set\(DAWN_BUILD_SAMPLES\s+OFF\b/);
     assert.match(cmake, /set\(TINT_BUILD_TESTS\s+OFF\b/);
     assert.match(cmake, /set\(DAWN_FETCH_DEPENDENCIES\s+ON\b/);

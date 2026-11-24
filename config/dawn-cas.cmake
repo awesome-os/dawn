@@ -4,7 +4,8 @@
 #   cmake --build build/dawn-cas --target webgpu_dawn
 
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type for Dawn CAS shard")
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Build libwebgpu_dawn as a standalone shared library")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build internal Dawn sub-libraries statically for monolithic libwebgpu_dawn")
+set(DAWN_BUILD_MONOLITHIC_LIBRARY "SHARED" CACHE STRING "Build libwebgpu_dawn as a standalone monolithic shared library")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "Enable PIC for shared library consumers")
 
 # Disable samples, tests, benchmarks, and docs to keep the shard lean
