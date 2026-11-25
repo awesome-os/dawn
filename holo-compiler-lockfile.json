@@ -1,0 +1,36 @@
+{
+  "schema": "holo-compiler-lockfile-v1",
+  "abiMagic": "0x33564742",
+  "casLayout": "v11",
+  "repo": "awesome-os/dawn",
+  "targets": [
+    "linux-x64"
+  ],
+  "generatedAt": "2026-11-24T23:53:02.473Z",
+  "dependencies": [
+    {
+      "id": "awesome-os/dawn/libwebgpu_dawn-linux-x64.so",
+      "kind": "lib",
+      "version": "dawn-cas-20261124",
+      "target": "linux-x64",
+      "sha512": "53ed65907031bbbf40b8b0aa210b9dbb59297573b24f7a258ff9147f75de994524b4ed0876e86a99501e5a181a836dae1218df201e00a1814e6301988810b6fb",
+      "size": 22961808,
+      "executable": false,
+      "blob": "v11/files/53/53ed65907031bbbf40b8b0aa210b9dbb59297573b24f7a258ff9147f75de994524b4ed0876e86a99501e5a181a836dae1218df201e00a1814e6301988810b6fb",
+      "url": "https://github.com/awesome-os/dawn/releases/download/dawn-cas-20261124/libwebgpu_dawn-linux-x64.so",
+      "dependencies": []
+    },
+    {
+      "id": "awesome-os/dawn/libwebgpu_dawn-linux-x64.so.sha256",
+      "kind": "object",
+      "version": "dawn-cas-20261124",
+      "target": "linux-x64",
+      "sha512": "1a7a8fffc513da0288d949491941f7471790c112124544b36ed04d842cd086acc2a0141361e6a544f83f66e8324fac397ca000961d56c4efbe5c212e4b1c1f03",
+      "size": 99,
+      "executable": false,
+      "blob": "v11/files/1a/1a7a8fffc513da0288d949491941f7471790c112124544b36ed04d842cd086acc2a0141361e6a544f83f66e8324fac397ca000961d56c4efbe5c212e4b1c1f03",
+      "url": "https://github.com/awesome-os/dawn/releases/download/dawn-cas-20261124/libwebgpu_dawn-linux-x64.so.sha256",
+      "dependencies": []
+    }
+  ]
+}
