@@ -1,3 +1,6 @@
+> [!NOTE]
+> Consolidated into https://github.com/awesome-os/chromium-baseline
+
 # `@awesome-os/dawn`
 
 Standalone **Google Dawn WebGPU** shared library shard (`libwebgpu_dawn`, BSD-3-Clause) wired to **`awesome-os/b8g-ghost @ cas-v1`** for:
